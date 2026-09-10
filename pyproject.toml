@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "promodoro"
+version = "0.1.0"
+description = "A small, mouse-friendly Pomodoro timer for your terminal."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["textual>=6,<9"]
+
+[project.scripts]
+pomo = "promodoro.__main__:main"
+promodoro = "promodoro.__main__:main"
+
+[project.optional-dependencies]
+dev = ["ruff>=0.12"]
+preview = ["textual-serve>=1,<2"]
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
