@@ -1,21 +1,30 @@
 """Mouse and keyboard interface for the timer."""
 
+import asyncio
+
 from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
-from textual.widgets import Button, Digits, Footer, Input, Label, Static
+from textual.widgets import Button, Checkbox, Digits, Footer, Input, Label, Static
 
+from promodoro.alerts import (
+    AlertSettings,
+    play_sound,
+    send_notification,
+    supports_notifications,
+)
 from promodoro.timer import Durations, Phase, Timer, format_time, parse_duration
 
 
-class SettingsScreen(ModalScreen[Durations | None]):
+class SettingsScreen(ModalScreen[tuple[Durations, AlertSettings] | None]):
     BINDINGS = [Binding("escape", "dismiss(None)", "Cancel")]
 
-    def __init__(self, durations: Durations) -> None:
+    def __init__(self, durations: Durations, alerts: AlertSettings) -> None:
         super().__init__()
         self.durations = durations
+        self.alerts = alerts
 
     def compose(self) -> ComposeResult:
         with VerticalScroll(id="settings-dialog"):
@@ -29,6 +38,13 @@ class SettingsScreen(ModalScreen[Durations | None]):
                     select_on_focus=True,
                     max_length=12,
                 )
+            yield Checkbox(
+                "Desktop notifications (macOS)",
+                value=self.alerts.notifications,
+                id="notifications",
+                disabled=not supports_notifications(),
+            )
+            yield Checkbox("Sound alert", value=self.alerts.sound, id="sound")
             yield Static("", id="settings-error", markup=False)
             yield Static("Changing the current duration resets and pauses its timer.")
             with Horizontal(classes="dialog-actions"):
@@ -53,7 +69,15 @@ class SettingsScreen(ModalScreen[Durations | None]):
                 )
                 field.focus()
                 return
-        self.dismiss(Durations(**values))
+        self.dismiss(
+            (
+                Durations(**values),
+                AlertSettings(
+                    notifications=self.query_one("#notifications", Checkbox).value,
+                    sound=self.query_one("#sound", Checkbox).value,
+                ),
+            )
+        )
 
 
 class PomodoroApp(App):
@@ -73,22 +97,26 @@ class PomodoroApp(App):
         Binding("q", "quit", "Quit"),
     ]
 
-    def __init__(self, durations: Durations | None = None, start: bool = False) -> None:
+    def __init__(
+        self,
+        durations: Durations | None = None,
+        start: bool = False,
+        alerts: AlertSettings | None = None,
+    ) -> None:
         super().__init__()
         self.timer = Timer(durations)
         self.start_immediately = start
+        self.alerts = alerts or AlertSettings()
 
     def compose(self) -> ComposeResult:
         with VerticalScroll(id="page"):
             with Vertical(id="workspace"):
                 with Horizontal(id="masthead"):
                     yield Static("◷  ProModoro", id="brand")
-                    yield Static("A little time. One thing.", id="tagline")
                 with Vertical(id="timer-card"):
                     with Horizontal(id="phases"):
                         for phase in Phase:
                             yield Button(phase.label, id=f"phase-{phase.value}")
-                    yield Static("FOCUS / READY", id="phase-status")
                     yield Digits("25:00", id="countdown")
                     yield Static("", id="progress")
                     yield Static("", id="timing-detail")
@@ -133,13 +161,34 @@ class PomodoroApp(App):
 
     def tick(self) -> None:
         if self.timer.tick():
-            self.bell()
-            self.set_notice(
-                "Break finished. Ready for another focus session?"
+            following = self.timer.phase
+            message = (
+                f"Break is finished. Back to work for "
+                f"{format_time(self.timer.durations.for_phase(following))}!"
                 if self.timer.phase == Phase.FOCUS
-                else "Focus complete. Your break has started."
+                else f"Focus complete. Your "
+                f"{format_time(self.timer.durations.for_phase(following))} "
+                "break has started!"
             )
+            self.set_notice(message, completion=True)
+            self.notify(message, title="Timer finished", timeout=10)
+            self.run_worker(self.completion_alerts(message, self.alerts))
         self.render_timer()
+
+    async def completion_alerts(self, message: str, settings: AlertSettings) -> None:
+        async def sound() -> None:
+            if settings.sound and not await play_sound():
+                self.bell()
+
+        async def notification() -> None:
+            if settings.notifications and supports_notifications():
+                if not await send_notification(message):
+                    self.notify(
+                        "Desktop notification could not be sent.",
+                        severity="warning",
+                    )
+
+        await asyncio.gather(sound(), notification())
 
     def render_timer(self) -> None:
         # Query the base screen so countdowns keep running behind settings.
@@ -149,14 +198,6 @@ class PomodoroApp(App):
             root.query_one(f"#phase-{phase.value}", Button).set_class(
                 self.timer.phase == phase, "selected"
             )
-        state = (
-            "RUNNING"
-            if self.timer.running
-            else ("READY" if self.timer.remaining == self.timer.total else "PAUSED")
-        )
-        root.query_one("#phase-status", Static).update(
-            f"{self.timer.phase.label.upper()} / {state}"
-        )
         root.query_one("#countdown", Digits).update(format_time(self.timer.remaining))
         elapsed = self.timer.total - self.timer.remaining
         width = max(12, min(44, self.size.width - 16))
@@ -181,12 +222,14 @@ class PomodoroApp(App):
         )
         following = self.timer.next_phase()
         root.query_one("#up-next", Static).update(
-            f"Up next  {following.label} · "
+            f"Up next:  {following.label} · "
             f"{format_time(self.timer.durations.for_phase(following))}"
         )
 
-    def set_notice(self, message: str) -> None:
-        self.screen_stack[0].query_one("#notice", Static).update(message)
+    def set_notice(self, message: str, *, completion: bool = False) -> None:
+        notice = self.screen_stack[0].query_one("#notice", Static)
+        notice.update(message)
+        notice.set_class(completion, "completion")
 
     def action_toggle(self) -> None:
         self.tick()
@@ -214,7 +257,14 @@ class PomodoroApp(App):
             self.render_timer()
 
     def action_settings(self) -> None:
-        self.push_screen(SettingsScreen(self.timer.durations), self.apply_settings)
+        self.push_screen(
+            SettingsScreen(self.timer.durations, self.alerts), self.save_settings
+        )
+
+    def save_settings(self, settings: tuple[Durations, AlertSettings] | None) -> None:
+        if settings is not None:
+            durations, self.alerts = settings
+            self.apply_settings(durations)
 
     def apply_settings(self, durations: Durations | None) -> None:
         if durations is None:
@@ -224,9 +274,9 @@ class PomodoroApp(App):
         if current_changed:
             self.timer.reset()
         self.set_notice(
-            "Times updated. Current timer reset."
+            "Settings updated. Current timer reset."
             if current_changed
-            else "Times updated."
+            else "Settings updated."
         )
         self.render_timer()
 

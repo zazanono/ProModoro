@@ -3,6 +3,7 @@
 import argparse
 import sys
 
+from promodoro.alerts import AlertSettings
 from promodoro.timer import Durations, parse_duration
 
 
@@ -36,6 +37,14 @@ def main() -> None:
         "-s", "--start", action="store_true", help="start counting immediately"
     )
     parser.add_argument("--version", action="version", version="ProModoro 0.1.0")
+    parser.add_argument(
+        "--no-sound", action="store_true", help="disable completion sounds"
+    )
+    parser.add_argument(
+        "--no-notifications",
+        action="store_true",
+        help="disable macOS desktop notifications",
+    )
     args = parser.parse_args()
     if args.minutes is not None:
         if not 1 <= args.minutes <= 180:
@@ -54,7 +63,13 @@ def main() -> None:
         )
     from promodoro.app import PomodoroApp
 
-    PomodoroApp(durations, start=args.start).run()
+    PomodoroApp(
+        durations,
+        start=args.start,
+        alerts=AlertSettings(
+            notifications=not args.no_notifications, sound=not args.no_sound
+        ),
+    ).run()
 
 
 if __name__ == "__main__":

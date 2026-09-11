@@ -65,11 +65,29 @@ In the command input, enter `focus 25`, `short 5m`, `long 15:00`, `start`, `paus
 
 - Defaults are 25 minutes of focus, 5 minutes for a short break, and 15 minutes for a long break.
 - Focus is coral, short breaks are teal, and long breaks are blue. Text labels also identify each phase.
-- Finishing focus starts a break automatically and rings the terminal bell, if your terminal allows it. Every fourth completed focus session starts a long break.
+- Finishing focus starts a break automatically. Every fourth completed focus session starts a long break.
 - Finishing a break prepares a fresh focus timer and waits for Start.
 - Reset, Skip, and manually changing phases pause the timer. Skipped sessions do not count as completed.
 - A monotonic deadline drives the countdown, preserving partial seconds when paused and avoiding drift from delayed screen updates.
 - The app must remain open to count down. Session counts and settings are not saved when it exits.
+
+## Completion alerts
+
+When focus or a break finishes, the app shows a highlighted message and a
+10-second toast. On macOS, it also sends a desktop notification and plays the
+system Glass chime. Sound plays independently of desktop notification delivery.
+Other platforms use the terminal bell, whose sound depends on terminal settings;
+desktop notifications are currently supported only on macOS.
+
+Use Settings to toggle desktop notifications and sound independently, or launch
+with `pomo --no-sound`, `pomo --no-notifications`, or both. These preferences apply
+to this launch only. Resetting, skipping, and manually changing phases do not
+trigger completion alerts.
+
+macOS notification permissions and Focus settings may suppress banners. After the
+first alert, check System Settings > Notifications for the script's notification
+entry if banners do not appear. Alerts run in the background so the next timer
+keeps counting. If sound playback fails, the app falls back to the terminal bell.
 
 An 80-column, 24-row terminal works; a taller terminal gives the layout more space. Small terminals can scroll.
 
