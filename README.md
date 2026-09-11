@@ -1,7 +1,7 @@
 # ProModoro
 
 <p align="center">
-  <img src="docs/promodoro-preview.png" alt="ProModoro running a 50-minute focus session" width="900">
+  <img src="docs/promodoro-preview.gif" alt="ProModoro timer demo" width="900">
 </p>
 
 A Pomodoro CLI inspired by [Pomofocus](https://pomofocus.io/). A large live countdown, clickable controls, and keyboard shortcuts, built with [Textual](https://textual.textualize.io/).
