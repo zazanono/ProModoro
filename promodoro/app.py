@@ -232,8 +232,9 @@ class PomodoroApp(App):
         notice.set_class(completion, "completion")
 
     def action_toggle(self) -> None:
+        was_running = self.timer.running
         self.tick()
-        if self.timer.running:
+        if was_running:
             self.timer.pause()
         else:
             self.timer.start()

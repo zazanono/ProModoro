@@ -38,6 +38,8 @@ pomo 50 -s  # begin counting immediately
 Positional minutes must be a whole number from 1 to 180. Short breaks use one
 fifth of the focus time; long breaks use three fifths. You can override either
 break with `--short` or `--long`, for example `pomo 50 --long 20`.
+The same defaults apply to `--focus`: `pomo --focus 50` also gives 50/10/30 minutes.
+Proportional breaks round to the nearest second, with a minimum of one second.
 Press Start after launch, or pass `-s` or `--start` to begin immediately.
 
 Set durations at launch. Plain numbers mean minutes; `m`, `s`, `h`, and `MM:SS` also work.
@@ -101,6 +103,7 @@ An 80-column, 24-row terminal works; a taller terminal gives the layout more spa
 python -m pip install -e '.[dev]'
 ruff check .
 ruff format --check .
+python -m unittest discover -s tests
 ```
 
 For optional local browser inspection of the actual TUI:

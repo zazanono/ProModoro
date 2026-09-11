@@ -4,6 +4,7 @@ import math
 import re
 import time
 from dataclasses import dataclass
+from decimal import Decimal, localcontext
 from enum import Enum
 
 
@@ -35,8 +36,10 @@ def parse_duration(value: str) -> int:
         if not match:
             raise ValueError("Use minutes, 25m, 90s, 1h, or 25:00.")
         amount, unit = match.groups()
-        seconds = float(amount) * {"": 60, "s": 1, "m": 60, "h": 3600}[unit]
-        if not math.isfinite(seconds) or not seconds.is_integer():
+        with localcontext() as context:
+            context.prec = max(28, len(amount) + 4)
+            seconds = Decimal(amount) * {"": 60, "s": 1, "m": 60, "h": 3600}[unit]
+        if seconds != seconds.to_integral_value():
             raise ValueError("Use a duration with whole seconds.")
         result = int(seconds)
     if not 1 <= result <= 180 * 60:

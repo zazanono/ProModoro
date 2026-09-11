@@ -52,10 +52,11 @@ def main() -> None:
         if args.focus is not None:
             parser.error("use either positional minutes or --focus, not both")
     minutes = args.minutes if args.minutes is not None else 25
+    focus = args.focus if args.focus is not None else minutes * 60
     durations = Durations(
-        focus=args.focus if args.focus is not None else minutes * 60,
-        short=args.short if args.short is not None else minutes * 12,
-        long=args.long if args.long is not None else minutes * 36,
+        focus=focus,
+        short=args.short if args.short is not None else max(1, round(focus / 5)),
+        long=args.long if args.long is not None else max(1, round(focus * 3 / 5)),
     )
     if not sys.stdin.isatty() or not sys.stdout.isatty():
         parser.exit(
