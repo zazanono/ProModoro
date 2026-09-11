@@ -97,6 +97,28 @@ keeps counting. If sound playback fails, the app falls back to the terminal bell
 
 An 80-column, 24-row terminal works; a taller terminal gives the layout more space. Small terminals can scroll.
 
+## Publishing releases
+
+The GitHub workflow `.github/workflows/release.yml` builds the source distribution
+and wheel, checks formatting and package metadata, and tests the installed wheel
+on Python 3.10 and 3.14 before publishing to PyPI with Trusted Publishing.
+
+The PyPI publisher must use owner `zazanono`, repository `ProModoro`, workflow
+`release.yml`, and GitHub environment `pypi`. No PyPI API token is needed.
+
+To release:
+
+1. Update the version in `pyproject.toml` and the CLI's `--version` output in
+   `promodoro/__main__.py`, then commit and push the changes, including the workflow.
+2. Optionally open **Actions → Release → Run workflow** to build and test without
+   publishing.
+3. Publish a GitHub release with a tag matching the package version, such as
+   `v0.1.0`. The workflow uploads to PyPI only after all checks pass.
+
+After the first successful release, users can install with `pipx install promodoro`
+or `uv tool install promodoro`, then run `pomo`. Each subsequent PyPI release needs
+a new version number.
+
 ## Development
 
 ```sh
